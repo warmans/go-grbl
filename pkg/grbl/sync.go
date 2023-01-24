@@ -22,7 +22,7 @@ func NewSyncConn(portName string, baudRate int, debug bool) (*SyncConn, error) {
 		port:  port,
 		debug: debug,
 	}
-	return conn, conn.Init()
+	return conn, conn.init()
 }
 
 type SyncConn struct {
@@ -30,7 +30,7 @@ type SyncConn struct {
 	debug bool
 }
 
-func (c *SyncConn) Init() error {
+func (c *SyncConn) init() error {
 	// tell grbl to wake up
 	resp, err := c.Write([]byte("\r\n\r\n"))
 	if err != nil {
