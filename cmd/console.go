@@ -24,10 +24,20 @@ func main() {
 
 func sync() {
 
-	conn, err := grbl.NewSyncConn("/dev/ttyUSB0", 115200, true)
+	conn, err := grbl.NewSyncConn("/dev/ttyUSB0", 115200)
 	if err != nil {
 		panic(err)
 	}
+	go func() {
+		if err := conn.Start(); err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		for msg := range conn.Pushed() {
+			fmt.Println("PUSH: ", string(msg))
+		}
+	}()
 	for {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Enter command: ")
@@ -38,8 +48,9 @@ func sync() {
 			fmt.Println("ERR: ", err.Error())
 			continue
 		}
-		fmt.Println("RESP: ", string(resp))
-
+		if resp != nil {
+			fmt.Println("RESP: ", stringOr(string(resp), "EMPTY"))
+		}
 	}
 }
 
@@ -81,4 +92,11 @@ func async() {
 	if err := conn.Start(context.Background()); err != nil {
 		panic(err)
 	}
+}
+
+func stringOr(str string, or string) string {
+	if str == "" {
+		return or
+	}
+	return str
 }
