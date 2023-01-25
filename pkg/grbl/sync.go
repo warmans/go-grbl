@@ -3,6 +3,7 @@ package grbl
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"go.bug.st/serial"
 	"strings"
 )
@@ -64,15 +65,22 @@ func (c *SyncConn) Write(cmd []byte) ([]byte, error) {
 	}
 	if IsStartResume(cmd) {
 		c.hold = false
+		// there will be a random extra OK left over from when feed-hold was processed (it seems to stop
+		// all responses being sent when in feed hold)
+		<-c.responseBuffer
 	}
-	if IsFeedHold(cmd) || c.hold {
+	if IsFeedHold(cmd) {
 		c.hold = true
 		return nil, nil
+	}
+	if c.hold {
+		return nil, fmt.Errorf("feedhold is active, commands cannot be executed")
 	}
 	// some commands don't return ok/error, so we can't do anything more here
 	if !ExpectConfirmation(cmd) {
 		return nil, nil
 	}
+	// unbuffered channel will block until a response is published
 	return <-c.responseBuffer, nil
 }
 
@@ -82,7 +90,7 @@ func (c *SyncConn) read() chan error {
 
 	// there is no way to stop the scanner when it's blocked at Scan
 	// so hopefully closing the underlying reader will kill it and if not we'll
-	// just need to return.
+	// probably just terminate main.
 	go func() {
 		scanner := bufio.NewScanner(c.port)
 		payload := bytes.Buffer{}
